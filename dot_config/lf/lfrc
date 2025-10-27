@@ -1,0 +1,236 @@
+set previewer ctpv
+set cleaner ctpvclear
+&ctpv -s $id
+&ctpvquit $id
+
+# Basic Settings
+#set hidden true
+#set number true
+set relativenumber true
+set ignorecase true
+set icons true
+set sixel true
+set rulerfmt "%d  |%a  |%p  |\033[7;31m %m \033[0m  |\033[7;33m %c \033[0m  |\033[7;35m %s \033[0m  |\033[7;34m %f \033[0m  |%i/%t"
+
+# Custom Functions
+cmd mkdir ${{
+  printf "Directory Name: "
+  read ans
+  mkdir $ans
+}}
+
+cmd mkfile ${{
+  printf "File Name: "
+  read ans
+  $EDITOR $ans
+}}
+
+cmd setwallpaper ${{
+    setwallpaper "$f"
+}}
+
+# Archive bindings
+cmd extract ${{
+  case "$f" in
+      *.zip) unzip "$f" ;;
+      *.rar) unrar x "$f" ;;
+      *.tar.gz) tar -xzvf "$f" ;;
+      *.tar.bz2) tar -xjvf "$f" ;;
+      *.tar) tar -xvf "$f" ;;
+      *.7z) 7z e "$f" ;;
+      *) echo "Unsupported format" ;;
+  esac
+}}
+
+cmd archive ${{
+    set -f
+    ouch compress $fx $fx
+}}
+
+# Trash bindings
+cmd trashy ${{
+  files=$(printf "$fx" | tr '\n' ';')
+  while [ "$files" ]; do
+    file=${files%%;*}
+
+    trash put "$(basename "$file")"
+    if [ "$files" = "$file" ]; then
+      files=''
+    else
+      files="${files#*;}"
+    fi
+  done
+}}
+
+cmd open &{{
+	case $(file --mime-type -Lb $f) in
+		text/*) lf -remote "send $id \$nvim \$fx";;
+		*) xdg-open "$f"
+	esac
+}}
+
+cmd on-select &{{
+    lf -remote "send $id set statfmt \"$(exa -ld --color=always "$f")\""
+}}
+
+cmd fzf_jump ${{
+    res="$(find . -maxdepth 1 | fzf --reverse --header='Jump to location')"
+    if [ -n "$res" ]; then
+        if [ -d "$res" ]; then
+            cmd="cd"
+        else
+            cmd="select"
+        fi
+        res="$(printf '%s' "$res" | sed 's/\\/\\\\/g;s/"/\\"/g')"
+        lf -remote "send $id $cmd \"$res\""
+    fi
+}}
+map <c-f> :fzf_jump
+
+cmd fzf_search ${{
+    RG_PREFIX="rg --column --line-number --no-heading --color=always --smart-case "
+    res="$(
+        FZF_DEFAULT_COMMAND="$RG_PREFIX ''" \
+            fzf --bind "change:reload:$RG_PREFIX {q} || true" \
+            --ansi --layout=reverse --header 'Search in files' \
+            | cut -d':' -f1 | sed 's/\\/\\\\/g;s/"/\\"/g'
+    )"
+    [ -n "$res" ] && lf -remote "send $id select \"$res\""
+}}
+map <c-g> :fzf_search
+
+
+cmd z %{{
+    result="$(zoxide query --exclude "$PWD" "$@" | sed 's/\\/\\\\/g;s/"/\\"/g')"
+    lf -remote "send $id cd \"$result\""
+}}
+
+cmd zi ${{
+    result="$(zoxide query -i | sed 's/\\/\\\\/g;s/"/\\"/g')"
+    lf -remote "send $id cd \"$result\""
+}}
+
+cmd on-cd &{{
+    zoxide add "$PWD"
+    &printf '\033]0;%s\007' "$PWD" > /dev/tty
+}}
+
+cmd move-parent &{{
+    dironly="setlocal \"$(dirname -- "$PWD" | sed 's/\\/\\\\/g;s/"/\\"/g')\" dironly"
+    lf -remote "send $id :updir; $dironly true; $1; $dironly false; open"
+}}
+
+cmd cut-add %{{
+    sed -i '1s/.*/move/' ~/.local/share/lf/files
+    printf '%s\n' "$fx" >> ~/.local/share/lf/files
+    lf -remote "send $id :unselect; sync"
+}}
+
+cmd cut-remove %{{
+    sed -i '1s/.*/move/' ~/.local/share/lf/files
+    printf '%s\n' "$fx" | while IFS= read -r file; do
+        sed -i "\|$file|d" ~/.local/share/lf/files
+    done
+    lf -remote "send $id :unselect; sync"
+}}
+
+
+
+#New folder with selected items
+
+cmd newfold ${{
+    set -f
+    printf 'Directory name: '
+    read -r newd
+    mkdir -- "$newd"
+    mv -- $fx "$newd"
+}}
+
+cmd yank-paths $printf '%s' "$fx" | wl-copy
+cmd yank-basename &basename -a -- $fx | sed -E 's/\.[^.]+$//' | head -c-1 | wl-copy
+
+#Share file
+cmd share $curl -F"file=@$fx" https://0x0.st | wl-copy
+
+cmd open_web_lb ${{
+    query=$(basename "$f" | sed -E 's/\./ /g; s/( \([0-9]{4}\)| [0-9]{4})( .*)?//')
+    firefox --new-window "https://letterboxd.com/search/$query"
+
+}}
+
+
+cmd open_web_google ${{
+    query=$(basename "$f" | sed -E 's/\./ /g; s/( \([0-9]{4}\)| [0-9]{4})( .*)?//')
+    	firefox --new-window "https://www.google.com/search?q=$query"
+
+}}
+
+cmd open_web_al ${{
+	query=$(basename "$f" | sed -E 's/^\[.*\] (.*) - ([0-9]{2}) .*/\1 episode \2/')
+    	firefox --new-window "https://www.reddit.com/r/anime/search/?q=$query"
+}}
+
+# Bindings
+map c
+map d
+map m
+map y
+map f
+
+on-cd
+
+map co $code "$f"
+map f $firefox "$f"
+map O $libreoffice "$f"
+map cf $dotfiles add "$f"
+map mp $mpv "$f"
+
+map sl open_web_lb
+map sa open_web_al
+map sg open_web_google
+
+map ae extract; reload
+map aa archive; reload
+
+# Basic Functions
+map . set hidden!
+map dt trashy
+map du $trash restore -r 0
+map dR $trash restore
+map de $trash empty --all
+map p paste
+map dd cut
+map yy copy
+map o open
+map R reload
+map mf mkfile
+map md mkdir
+map bg setwallpaper
+map C clear
+map I :rename; cmd-home
+map J move-parent down
+map K move-parent up
+map <a-n> newfold
+map da cut-add
+map dr cut-remove
+map yp yank-paths 
+map yn yank-basename
+map yu share
+map <esc> unselect
+
+# Movement
+map gc cd ~/.config
+map gD cd ~/Documents
+map gd cd ~/Downloads
+map gt cd ~/.local/share/Trash/files
+map gh cd ~
+map gm cd /media
+map gu cd /usr
+map ymd shell cp -rf %s /media/Documents
+map yma shell cp -rf %s /media/Anime
+map ymv shell cp -rf %s /media/Movies
+
+map mmd shell mv %s /media/Documents
+map mma shell mv %s /media/Anime
+map mmv shell mv %s /media/Movies
+

@@ -1,0 +1,52 @@
+theme = "Dracula"
+default_source = "Nyaa"
+download_client = "qBittorrent"
+date_format = "%Y-%m-%d %H:%M"
+timeout = 30
+scroll_padding = 6
+cursor_padding = 4
+save_config_on_change = true
+hot_reload_config = true
+
+[client.command]
+cmd = 'curl "{torrent}" > ~/{file}'
+shell_cmd = "sh -c"
+
+[client.qBittorrent]
+base_url = "http://localhost:8080"
+username = "admin"
+password = "nimdanimda"
+use_magnet = true
+savepath = "/media/Content/Anime"
+category = "Category Name"
+tags = [
+    "Tag one",
+    "Tag two",
+]
+skip_checking = false
+paused = false
+create_root_folder = true
+up_limit = -1
+dl_limit = -1
+ratio_limit = 0.5
+seeding_time_limit = -1
+auto_tmm = false
+sequential_download = true
+prioritize_first_last_pieces = true
+
+[source.nyaa]
+base_url = "https://nyaa.ink/"
+default_sort = "Date"
+default_sort_dir = "Desc"
+default_filter = "NoFilter"
+default_category = "AllCategories"
+default_search = ""
+rss = false
+
+[source.torrentgalaxy]
+base_url = "https://tgx.sb/"
+default_sort = "Date"
+default_sort_dir = "Desc"
+default_filter = "NoFilter"
+default_category = "AllCategories"
+default_search = ""
